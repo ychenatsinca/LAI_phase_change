@@ -436,6 +436,7 @@ pdf(file= "Neutral.pdf" , width = 10, height = 9 )
 #######################################################################
 pdf(file= "all_phases.pdf" , width = 27, height = 9 ) 
 #
+
   my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"),alpha=1)(11)
   my.breaks.b2r<- round(seq(100900, 102000, length.out = 11), digits=1)
  
@@ -461,19 +462,19 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
  #plot lagend 
   par(fig=c(0.05,.35,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
   plot(neu.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180), col=my.color.w2g,breaks=my.breaks.w2g,
-       smallplot=c(0.65,.95, 0.16, 0.19), add=T, horizontal=T,
-       axis.args=list(at=my.breaks.w2g, labels=my.breaks.w2g, cex.axis=0.8),
-       legend.args=list(text= expression("LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=0.8) )
+       smallplot=c(0.65,.95, 0.17, 0.2), add=T, horizontal=T,
+       axis.args=list(at=my.breaks.w2g, labels=my.breaks.w2g, cex.axis=1),
+       legend.args=list(text= expression("LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=1) )
   #add coastaline
   par(fig=c(0.05,.35,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  plot(coastlines, lwd=0.5,ylim=c(0,60),xlim=c(100,180),add=T  )
-  box()
+  plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
   par(xpd=TRUE)
   #text(x=92,y=60, label="a",cex=1.2, font=2)
   par(xpd=FALSE)
 #  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
   #add contour
-  contour(neu.raster, lev=my.breaks.b2r, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,labcex=1.5,col.axis="black",lwd=1.0 )
+  contour(neu.raster, lev=my.breaks.b2r, add=TRUE, 
+          ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,labcex=1.5,col.axis="black",lwd=2 )
 
   degs.N <- seq(0,60, length=7)
   #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
@@ -483,10 +484,15 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   deg.E <- c("100","110","120","130","140","150","160","170","180")
   axis(side = 1, at = seq(100,180,length.out=9), 
        labels = paste0(deg.E,"°","E"), tck = -0.02)
-
+  box()
+ 
  #  mtext("Longitude" , side=1, line=2.0, cex=1.0) 
  #
  #######postive - neutral cases ##########
+
+ my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(21)
+ my.breaks.b2b<- round(seq(-300, 200, length.out = 21), digits=0)
+ 
  my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
  my.breaks.b2r<- round(seq(-300, 200, length.out = 21), digits=0)
   #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
@@ -505,17 +511,16 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   #plot lagend 
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
   plot(pos.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2), col=my.color.b2g,breaks=my.breaks.b2g,
-       smallplot=c(0.65, 0.95, 0.15, 0.18), add=T, horizontal=T,
-       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=0.8),
-       legend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=0.8) )
+       smallplot=c(0.6, 0.98, 0.17, 0.2), add=T, horizontal=T,
+       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=1),
+       legend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=1) )
   #add coastaline
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  plot(coastlines, lwd=0.5,ylim=c(0,60),xlim=c(100,180),add=T  )
-  box()
+  plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
   par(xpd=TRUE)
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
   #add contour
-  contour(pos.neu.raster, lev=my.breaks.b2r, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,labcex=1.5,lwd=1.0 )
+  contour(pos.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=1.0 )
 
   degs.N <- seq(0,60, length=7)
   #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
@@ -525,8 +530,12 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   deg.E <- c("100","110","120","130","140","150","160","170","180")
   axis(side = 1, at = seq(100,180,length.out=9), 
        labels = paste0(deg.E,"°","E"), tck = -0.02)
-
+  box()
+ 
 ##############  negative - neutral cases ########################### 
+  my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(21)
+  my.breaks.b2b<- round(seq(-400, 700, length.out = 21), digits=0)
+  
   my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
   my.breaks.b2r<- round(seq(-400, 700, length.out = 21), digits=0)
   #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
@@ -552,22 +561,22 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   #plot lagend 
   par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
   plot(neg.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2), col=my.color.b2g,breaks=my.breaks.b2g,
-       smallplot=c(0.65,.95, 0.16, 0.19), add=T, horizontal=T,
-       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=0.8),
-       legend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=0.8) )
+       smallplot=c(0.60,.98, 0.17, 0.2), add=T, horizontal=T,
+       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=1),
+       legend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=1) )
 
 
    #add coastaline
   par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  plot(coastlines, lwd=0.5,ylim=c(0,60),xlim=c(100,180),add=T  )
-  box()
+  plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
   par(xpd=TRUE)
   #text(x=92,y=60, label="a",cex=1.2, font=2)
   par(xpd=FALSE)
 
   # add contour
-  contour(neg.neu.raster, lev=my.breaks.b2r, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,labcex=1.5,lwd=1.0 )
-
+  contour(neg.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=1.0 )
+  box()
+ 
 
 #  par(fig=c(0.0,0.95,0.1,1.0), mar = c(4, 4.5, 1.5 ,0.1), usr=c(90,180,0,60), xpd=TRUE)  
 #  plot(coastlines, lwd=0.8,ylim=c(0,60),xlim=c(90,180),add=T  )
