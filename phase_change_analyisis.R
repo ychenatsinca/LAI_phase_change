@@ -58,7 +58,32 @@ table.comb <- read.csv("table_comb_3b_run.txt")
 all.table <- read.csv("all.table.csv")
 #w_0_p_100_4D w_0_p_60_2D w_0_p_80_3D w_10_p_0_3D w_10_p_80_3D w_12_p_0_4D w_12_p_100_4D w_8_p_0_2D w_8_p_60_2D
 
-all.table <- subset( all.table, all.table$run.case == "w_10_p_80_3D")
+nx=6722
+ny=6722
+#
+#allocate array
+neu_lai <- array(0, dim=c(nx,ny) )
+neg_lai <- array(0, dim=c(nx,ny) )
+pos_lai <- array(0, dim=c(nx,ny) )
+
+
+neu_n <- array(0,dim=c(nx,ny))
+neg_n <- array(0,dim=c(nx,ny))
+pos_n <- array(0,dim=c(nx,ny))
+
+ld_go <- T
+
+if (ld_go) {
+#
+
+for (icase in 1:3) { 
+
+run.case  <- c("w_8_p_60_2D", "w_10_p_80_3D", "w_12_p_100_4D") 
+track.dir.case <- c("/TRACK_DATA_2D/","/TRACK_DATA_3D/","/TRACK_DATA_4D/") 
+ 
+track.dir <- track.dir.case[icase] 
+
+all.table <- subset( all.table, (all.table$run.case == run.case[icase])   )
 
 
 #neutral.table  <-  subset(all.table, abs(all.table$eff.size.for) <= 0.25 )
@@ -81,31 +106,25 @@ pos_gate <- pos_gp
 
 
 
-ld_go <- FALSE
-
-if (ld_go) {
 #load_ini_lai_file
 input_lai <- fun_read_nc("/lfs/home/ychen/LAI_STUDY_EAsia/LAI_DATA/c_gls_LAI_199901100000_VGT_V2_EAST_ASIA.nc",var_st=2)
 
-nx=6722
-ny=6722
-#
-#allocate array
-neu_lai <- array(0, dim=c(nx,ny) )
-neg_lai <- array(0, dim=c(nx,ny) )
-pos_lai <- array(0, dim=c(nx,ny) )
-
-
-neu_n=0
-neg_n=0
-pos_n=0
-
 lai_dir <- c("/lfs/home/ychen/LAI_STUDY_EAsia/LAI_DATA/")
 
+#get file list from the folder 
+lai.fnames <- list.files(path=paste(lai_dir,sep=""), pattern="*.nc") 
+
+   wrk.date <- substr( lai.fnames, start=11, stop=18)
+   wrk.yr  <- as.integer(substr(wrk.date, start=1, stop=4) )
+   wrk.mon <- as.integer(substr(wrk.date, start=5, stop=6) ) 
+
+#
 for (ieve in 1:length(all.table$date.time)) {
   
+  #print( paste("working date:", wrk.date, sep="") )
+ 
 
-  tmp_date <-  all.table$date.time[ieve]
+
   iyr  = substr(all.table$date.time[ieve],start=1,stop=4)
 
    if (iyr <= 2013) {
@@ -117,43 +136,67 @@ for (ieve in 1:length(all.table$date.time)) {
 
    }
 
-lai_fname=paste(lai_dir,lai_fname,sep="") 
 
-print(lai_fname)
+#  lai_fname=paste(lai_dir,lai_fname,sep="") 
 
+  print(lai_fname)
+
+  tmp_date <-  all.table$date.time[ieve]
+  ipt = as.integer(40/10) 
+  file.id <- which(wrk.date==tmp_date) + ipt
+  print(paste("wrk file id :", file.id, sep=""))
+  print(paste("wrk file_post_two_month:", lai.fnames[file.id], sep=""))
+
+
+
+    tc.pot <- fun_read_nc(arg1=paste("/lfs/home/ychen/LAI_STUDY_EAsia/",track.dir,"/","tc_mask_pot_",tmp_date,"00.nc",sep=""), var_st=1)
+#
+       tc.aff.mask <- tc.pot$tc_pot
+   #    tc.aff.mask[tc.aff.mask==0] <- NA 
+    
+# set lai file as two months later 
+lai_fname = paste(lai_dir,lai.fnames[file.id],sep="")
+
+  
 # neu     
       for (ineu in 1:length(neu_gp) ) {
          if( neu_gp[ineu] == tmp_date ) {
-         tmp1_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI
+         tmp1_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask
          neu_lai <- tmp1_arr + neu_lai 
-         neu_n=neu_n+1
+         neu_n <- neu_n + tc.aff.mask
          print("neutral event.")
          }
       } 
 # neg
       for (ineg in 1:length(neg_gp) ) {
          if( neg_gp[ineg] == tmp_date ) {
-         tmp2_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI 
+         tmp2_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask
          neg_lai <- tmp2_arr + neg_lai
-         neg_n=neg_n+1
+         neg_n <- neg_n + tc.aff.mask
          print("negative event.")
          }
       } 
 # pos
       for (ipos in 1:length(pos_gp) ) {
          if( pos_gp[ipos] == tmp_date ) {
-         tmp3_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI 
+         tmp3_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask 
          pos_lai <- tmp3_arr + pos_lai 
-         pos_n=pos_n+1
+         pos_n <- pos_n + tc.aff.mask
          print("positive event.")
          }
 
       } 
 } #end_for
+
+
+
+} # end of run icase
+
+
 #take average
-neu_lai <- (neu_lai*lc.for.mask)/ (as.numeric(neu_n) )
-neg_lai <- (neg_lai*lc.for.mask)/ (as.numeric(neg_n) )
-pos_lai <- (pos_lai*lc.for.mask)/ (as.numeric(pos_n) )
+neu_lai <- (neu_lai*lc.for.mask)/ (neu_n)
+neg_lai <- (neg_lai*lc.for.mask)/ (neg_n) 
+pos_lai <- (pos_lai*lc.for.mask)/ (pos_n)
 
  #end for 
 #convert arr to raster
@@ -174,6 +217,9 @@ pos.raster.lai <-  raster( x=t(pos_lai-neu_lai),
                               ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
                               crs=CRS("+proj=longlat +datum=WGS84"))
 } #end ld_go
+
+
+
 
 
 ld_go<-TRUE
@@ -436,9 +482,11 @@ pdf(file= "Neutral.pdf" , width = 10, height = 9 )
 #######################################################################
 pdf(file= "all_phases.pdf" , width = 27, height = 9 ) 
 #
+  my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(11)
+  my.breaks.b2b<- round(seq(100900, 101900, length.out = 7), digits=0)
 
-  my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"),alpha=1)(11)
-  my.breaks.b2r<- round(seq(100900, 102000, length.out = 11), digits=1)
+ # my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"),alpha=1)(11)
+ # my.breaks.b2r<- round(seq(100900, 102000, length.out = 11), digits=1)
  
   my.color.w2g <- colorRampPalette(
     c("ivory","wheat","greenyellow","yellowgreen","limegreen"
@@ -473,32 +521,32 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   par(xpd=FALSE)
 #  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
   #add contour
-  contour(neu.raster, lev=my.breaks.b2r, add=TRUE, 
-          ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,labcex=1.5,col.axis="black",lwd=2 )
+  contour(neu.raster, lev=my.breaks.b2b, add=TRUE, 
+          ylim=c(0,60),xlim=c(100,180), col="black",labcex=1.5,col.axis="black",lwd=0.6 )
 
   degs.N <- seq(0,60, length=7)
   #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
   axis(side = 2, at = degs.N, srt=0, las=1, 
-       labels = paste0(degs.N,"°","N") , tck = -0.02)
+       labels = paste0(degs.N,"°","N") , tck = 0.02,cex.axis=1.5)
  # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
   deg.E <- c("100","110","120","130","140","150","160","170","180")
   axis(side = 1, at = seq(100,180,length.out=9), 
-       labels = paste0(deg.E,"°","E"), tck = -0.02)
+       labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
   box()
  
  #  mtext("Longitude" , side=1, line=2.0, cex=1.0) 
  #
  #######postive - neutral cases ##########
 
- my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(21)
- my.breaks.b2b<- round(seq(-300, 200, length.out = 21), digits=0)
+ my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(11)
+ my.breaks.b2b<- round(seq(-250, 250, length.out = 11), digits=0)
  
  my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
  my.breaks.b2r<- round(seq(-300, 200, length.out = 21), digits=0)
   #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
 
-  leg.at  <-  c("-300","-200", "-100","0","100","200") 
-  leg.txt <-  c("-300","-200", "-100","0","100","200") 
+  leg.at  <-  c("-200", "-100","0","100","200") 
+  leg.txt <-  c("-200", "-100","0","100","200") 
   # set subplot margin
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
   plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180),add=T)
@@ -520,28 +568,28 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   par(xpd=TRUE)
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
   #add contour
-  contour(pos.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=1.0 )
+  contour(pos.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=0.6 )
 
   degs.N <- seq(0,60, length=7)
   #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
   axis(side = 2, at = degs.N, srt=0, las=1, 
-       labels = paste0(degs.N,"°","N") , tck = -0.02)
+       labels = paste0(degs.N,"°","N") , tck = 0.02,cex.axis=1.5)
  # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
   deg.E <- c("100","110","120","130","140","150","160","170","180")
   axis(side = 1, at = seq(100,180,length.out=9), 
-       labels = paste0(deg.E,"°","E"), tck = -0.02)
+       labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
   box()
  
 ##############  negative - neutral cases ########################### 
   my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(21)
-  my.breaks.b2b<- round(seq(-400, 700, length.out = 21), digits=0)
+  my.breaks.b2b<- round(seq(-500, 500, length.out = 21), digits=0)
   
   my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
-  my.breaks.b2r<- round(seq(-400, 700, length.out = 21), digits=0)
+  my.breaks.b2r<- round(seq(-400, 400, length.out = 21), digits=0)
   #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
 
-  leg.at  <-  c("400","-300","-200","-100","0","100","200","300","400","500","600","700") 
-  leg.txt <-  c("-400","-300","-200","-100","0","100","200","300","400","500","600","700") 
+  leg.at  <-  c("-300","-200","-100","0","100","200","300") 
+  leg.txt <-  c("-300","-200","-100","0","100","200","300") 
 
   my.color.b2g <- colorRampPalette(
     c("brown","wheat","ivory","limegreen", "forestgreen"))(25)
@@ -574,7 +622,7 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   par(xpd=FALSE)
 
   # add contour
-  contour(neg.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=1.0 )
+  contour(neg.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=0.6 )
   box()
  
 
@@ -586,11 +634,11 @@ pdf(file= "all_phases.pdf" , width = 27, height = 9 )
   degs.N <- seq(0,60, length=7)
   #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
   axis(side = 2, at = degs.N, srt=0, las=1, 
-       labels = paste0(degs.N,"°","N") , tck = -0.02)
+       labels = paste0(degs.N,"°","N") , tck = 0.02,cex.axis=1.5)
  # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
   deg.E <- c("100","110","120","130","140","150","160","170","180")
   axis(side = 1, at = seq(100,180,length.out=9), 
-       labels = paste0(deg.E,"°","E"), tck = -0.02)
+       labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
 
 
 dev.off()
