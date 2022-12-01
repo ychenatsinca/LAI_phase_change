@@ -61,21 +61,26 @@ all.table <- table.comb
 
 nx=6722
 ny=6722
-#
+
+ld_go <- F
+
+if (ld_go) {
+##
 #allocate array
 neu_lai <- array(0, dim=c(nx,ny) )
 neg_lai <- array(0, dim=c(nx,ny) )
 pos_lai <- array(0, dim=c(nx,ny) )
+
+neu_spei <- array(0, dim=c(nx,ny) )
+neg_spei <- array(0, dim=c(nx,ny) )
+pos_spei <- array(0, dim=c(nx,ny) )
 
 
 neu_n <- array(0,dim=c(nx,ny))
 neg_n <- array(0,dim=c(nx,ny))
 pos_n <- array(0,dim=c(nx,ny))
 
-ld_go <- T
 
-if (ld_go) {
-#
 
 for (icase in 1:1) { 
 
@@ -89,9 +94,9 @@ track.dir <- track.dir.case[icase]
 
 #all.table <- subset( all.table, (all.table$run.case == run.case[icase])   )
 
-neutral.table  <-  subset(all.table, abs(all.table$eff.size.for) <= 0.3 )
-negative.table <-  subset(all.table,  (all.table$eff.size.for) < -0.3 )
-positive.table <-  subset(all.table,  (all.table$eff.size.for) > 0.3 )
+neutral.table  <-  subset(all.table, abs(all.table$eff.size.for) <= 0.25 )
+negative.table <-  subset(all.table,  (all.table$eff.size.for) < -0.25 )
+positive.table <-  subset(all.table,  (all.table$eff.size.for) > 0.25 )
 
 #neutral.table  <-  subset(all.table,  all.table$group == "Neutral"  )
 #negative.table <-  subset(all.table,  all.table$group == "Negative" )
@@ -124,7 +129,16 @@ lai.fnames <- list.files(path=paste(lai_dir,sep=""), pattern="*.nc")
 
    wrk.date <- substr( lai.fnames, start=11, stop=18)
    wrk.yr  <- as.integer(substr(wrk.date, start=1, stop=4) )
-   wrk.mon <- as.integer(substr(wrk.date, start=5, stop=6) ) 
+   #wrk.mon <- as.integer(substr(wrk.date, start=5, stop=6) ) 
+
+
+   wrk.mon <- formatC(as.integer(substr(wrk.date, start=5, stop=6) ),format="d",width=2,flag="0")
+   print( paste("working date:", wrk.date, sep="") )
+
+   #SPEI data
+   spei_fname = paste("/lfs/home/ychen/LAI_STUDY_EAsia/SPEI_DATA/","spei02_", wrk.yr,"_",wrk.mon,"_EA.nc",sep="")
+
+
 
 #
 for (ieve in 1:length(all.table$date.time)) {
@@ -170,27 +184,52 @@ lai_fname = paste(lai_dir,lai.fnames[file.id],sep="")
       for (ineu in 1:length(neu_gp) ) {
          if( neu_gp[ineu] == tmp_date ) {
          tmp1_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask
-         neu_lai <- tmp1_arr + neu_lai 
+         neu_lai <- tmp1_arr + neu_lai
+ 
+         #count tc times in the tc_aff_mask  
          neu_n <- neu_n + tc.aff.mask
+         
+         tmp1_arr <- fun_read_nc(arg1=spei_fname,var_st=1)$SPEI*tc.aff.mask 
+         neu_spei <- tmp1_arr + neu_spei 
+
          print("neutral event.")
          }
       } 
 # neg
       for (ineg in 1:length(neg_gp) ) {
          if( neg_gp[ineg] == tmp_date ) {
-         tmp2_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask
+         #tmp2_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask
+         # eff_size * std_lai
+#         tmp2_arr <- tc.aff.mask * ((negative.table$std.for.lai.aff[ineg] + negative.table$std.for.lai.ref[ineg])/2. ) * negative.table$eff.size.for[ineg] 
+         tmp2_arr <- tc.aff.mask * (negative.table$std.for.lai.aff[ineg]  ) * negative.table$eff.size.for[ineg]  
+
+#         image.plot(tmp2_arr)
+
          neg_lai <- tmp2_arr + neg_lai
          neg_n <- neg_n + tc.aff.mask
+
+         # for delta spei
+         tmp2_arr <- tc.aff.mask * (negative.table$eve.for.spei.aff[ineg]- negative.table$eve.for.spei.ref[ineg])
+         neg_spei <- tmp2_arr + neg_spei 
+
          print("negative event.")
          }
       } 
 # pos
       for (ipos in 1:length(pos_gp) ) {
          if( pos_gp[ipos] == tmp_date ) {
-         tmp3_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask 
+         #tmp3_arr <- fun_read_nc(arg1=lai_fname,var_st=2)$LAI*tc.aff.mask 
+         # eff_size * std_lai
+        # tmp3_arr <- tc.aff.mask * ((positive.table$std.for.lai.aff[ipos] + positive.table$std.for.lai.ref[ipos])/2. ) * positive.table$eff.size.for[ipos] 
+          tmp3_arr <- tc.aff.mask * (positive.table$std.for.lai.aff[ipos] ) * positive.table$eff.size.for[ipos] 
          pos_lai <- tmp3_arr + pos_lai 
          pos_n <- pos_n + tc.aff.mask
-         print("positive event.")
+ 
+         # for delta spei
+         tmp3_arr <- tc.aff.mask * (positive.table$eve.for.spei.aff[ipos]-  positive.table$eve.for.spei.ref[ipos])
+         pos_spei <- tmp3_arr + pos_spei 
+
+        print("positive event.")
          }
 
       } 
@@ -206,6 +245,16 @@ neu_lai <- (neu_lai*lc.for.mask)/ (neu_n)
 neg_lai <- (neg_lai*lc.for.mask)/ (neg_n) 
 pos_lai <- (pos_lai*lc.for.mask)/ (pos_n)
 
+
+#take average
+
+neu_spei <- (neu_spei*lc.for.mask)/ (neu_n)
+neg_spei <- (neg_spei*lc.for.mask)/ (neg_n)
+pos_spei <- (pos_spei*lc.for.mask)/ (pos_n)
+
+
+
+
  #end for 
 #convert arr to raster
 
@@ -215,18 +264,30 @@ neu.raster.lai <-  raster( x=t(neu_lai),
                               ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
                               crs=CRS("+proj=longlat +datum=WGS84"))
 
-neg.raster.lai <-  raster( x=t(neg_lai-neu_lai),
+neg.raster.lai <-  raster( x=t(neg_lai),
                               xmn=min(input_lai$lon),  xmx=max(input_lai$lon),
                               ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
                               crs=CRS("+proj=longlat +datum=WGS84"))
 
-pos.raster.lai <-  raster( x=t(pos_lai-neu_lai),
+pos.raster.lai <-  raster( x=t(pos_lai),
                               xmn=min(input_lai$lon),  xmx=max(input_lai$lon),
                               ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
                               crs=CRS("+proj=longlat +datum=WGS84"))
-} #end ld_go
+# for spei
+neu.raster.spei <-  raster( x=t(neu_spei),
+                              xmn=min(input_lai$lon),  xmx=max(input_lai$lon),
+                              ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
+                              crs=CRS("+proj=longlat +datum=WGS84"))
 
+neg.raster.spei <-  raster( x=t(neg_spei),
+                              xmn=min(input_lai$lon),  xmx=max(input_lai$lon),
+                              ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
+                              crs=CRS("+proj=longlat +datum=WGS84"))
 
+pos.raster.spei <-  raster( x=t(pos_spei),
+                              xmn=min(input_lai$lon),  xmx=max(input_lai$lon),
+                              ymn=min(input_lai$lat),  ymx=max(input_lai$lat),
+                              crs=CRS("+proj=longlat +datum=WGS84"))
 
 
 
@@ -320,150 +381,11 @@ pos.neu.raster <-  raster( x=t(pos_arr-neu_arr),
 } # end of lg_go
 
 
+} #end ld_go
 
 
-#par(oma = c(0.05, 0.05, 0.05, 0.05),mgp=c(2.5,1,0))
-#color palette
-pdf(file= "Neutral.pdf" , width = 10, height = 9 ) 
-#
-  my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"),alpha=1)(11)
-  my.breaks.b2r<- round(seq(100900, 102000, length.out = 11), digits=1)
- 
-  my.color.w2g <- colorRampPalette(
-    c("ivory","wheat","greenyellow","yellowgreen","limegreen"
-      ,"forestgreen","darkgreen","darkgreen"))(36)
-  my.breaks.w2g<- seq(0,7,length.out=36)
-
-  leg.at.lai  <- my.breaks.w2g 
-  leg.txt.lai <- my.breaks.w2g 
-  # set subplot margin
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180))
-  #### 
-  par(fig=c(0.02,.96,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
-  plot(neu.raster.lai,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(0,7),
-         col=my.color.w2g,breaks=my.breaks.w2g, box=T, 
-       xlab="", ylab="", cex.lab=1., cex.main=2.0,
-       main=paste("",sep=""),add=T )
-  # 
- #plot lagend 
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(neu.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180), col=my.color.w2g,breaks=my.breaks.w2g,
-       smallplot=c(0.5,.88, 0.15, 0.20), add=T, horizontal=T,
-       axis.args=list(at=my.breaks.w2g, labels=my.breaks.w2g, cex.axis=0.8),
-       legend.args=list(text= expression("LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=0.8) )
-  #add coastaline
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  plot(coastlines, lwd=0.5,ylim=c(0,60),xlim=c(100,180),add=T  )
-  box()
-  par(xpd=TRUE)
-  #text(x=92,y=60, label="a",cex=1.2, font=2)
-  par(xpd=FALSE)
-#  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  #add contour
-  contour(neu.raster, lev=my.breaks.b2r, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,cex=1.5,lwd=1.0 )
-
-  degs.N <- seq(0,60, length=7)
-  #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
-  axis(side = 2, at = degs.N, srt=0, las=1, 
-       labels = paste0(degs.N,"°","N") , tck = -0.02)
- # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
-  deg.E <- c("100","110","120","130","140","150","160","170","180")
-  axis(side = 1, at = seq(100,180,length.out=9), 
-       labels = paste0(deg.E,"°","E"), tck = -0.02)
-  #  mtext("Longitude" , side=1, line=2.0, cex=1.0) 
-  dev.off()
-
-  pdf(file= "Negative_Neutral.pdf" , width = 10, height = 9 ) 
-  #positive - neutral cases 
-  my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
-  my.breaks.b2r<- round(seq(-400, 700, length.out = 21), digits=0)
-  #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
-
-  leg.at  <-  c("400","-300","-200","-100","0","100","200","300","400","500","600","700") 
-  leg.txt <-  c("-400","-300","-200","-100","0","100","200","300","400","500","600","700") 
-
-  my.color.b2g <- colorRampPalette(
-    c("brown","wheat","ivory","limegreen", "forestgreen"))(25)
-  my.breaks.b2g<- seq(-1.2,1.2,length.out=25)
-  # set subplot margin
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180))
-  #### 
-  par(fig=c(0.02,.96,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
-  plot(neg.raster.lai,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2),
-         col=my.color.b2g,breaks=my.breaks.b2g, box=T, 
-       xlab="", ylab="", cex.lab=1., cex.main=2.0,
-       main=paste("",sep=""),add=T )
-  #plot lagend 
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(neg.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2), col=my.color.b2g,breaks=my.breaks.b2g,
-       smallplot=c(0.5,.88, 0.15, 0.20), add=T, horizontal=T,
-       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=0.8),
-       legend.args=list(text= expression("LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=0.8) )
-  #add coastaline
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  plot(coastlines, lwd=0.5,ylim=c(0,60),xlim=c(100,180),add=T  )
-  box()
-  par(xpd=TRUE)
-  #text(x=92,y=60, label="a",cex=1.2, font=2)
-  par(xpd=FALSE)
-  # add contour
-  contour(neg.neu.raster, lev=my.breaks.b2r, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,cex=1.5,lwd=1.0 )
-  degs.N <- seq(0,60, length=7)
-  #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
-  axis(side = 2, at = degs.N, srt=0, las=1, 
-       labels = paste0(degs.N,"°","N") , tck = -0.02)
-  # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
-  deg.E <- c("100","110","120","130","140","150","160","170","180")
-  axis(side = 1, at = seq(100,180,length.out=9), 
-       labels = paste0(deg.E,"°","E"), tck = -0.02)
-  dev.off()
 
 
- pdf(file= "Positive_Neutral.pdf" , width =10, height = 9 ) 
- #
- #positive - neutral cases 
- my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
- my.breaks.b2r<- round(seq(-300, 200, length.out = 21), digits=0)
-  #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
-
-  leg.at  <-  c("-300","-200", "-100","0","100","200") 
-  leg.txt <-  c("-300","-200", "-100","0","100","200") 
-  # set subplot margin
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180))
-  #### 
-  par(fig=c(0.02,.96,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
-  plot(pos.raster.lai,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2),
-         col=my.color.b2g,breaks=my.breaks.b2g, box=T, 
-       xlab="", ylab="", cex.lab=1., cex.main=2.0,
-       main=paste("",sep=""),add=T )
-  #plot lagend 
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(pos.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2), col=my.color.b2g,breaks=my.breaks.b2g,
-       smallplot=c(0.5,.88, 0.15, 0.20), add=T, horizontal=T,
-       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=0.8),
-       legend.args=list(text= expression("LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=0.8) )
-
-  #add coastaline
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  plot(coastlines, lwd=0.5,ylim=c(0,60),xlim=c(100,180),add=T  )
-  box()
-  par(xpd=TRUE)
-#  box()
-  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
-  #add contour
-  contour(pos.neu.raster, lev=my.breaks.b2r, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2r,cex=1.5,lwd=1.0 )
-  degs.N <- seq(0,60, length=7)
-  #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
-  axis(side = 2, at = degs.N, srt=0, las=1, 
-       labels = paste0(degs.N,"°","N") , tck = -0.02)
- # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
-  deg.E <- c("100","110","120","130","140","150","160","170","180")
-  axis(side = 1, at = seq(100,180,length.out=9), 
-       labels = paste0(deg.E,"°","E"), tck = -0.02)
-  dev.off()
 #######################################################################
 #
 #   all phase plot  
@@ -472,7 +394,7 @@ pdf(file= "Neutral.pdf" , width = 10, height = 9 )
 
 library("viridis")
 
-#pdf(file= "all_phases_3a_60days.pdf" , width = 27, height = 9 ) 
+pdf(file= "all_phases_3a_eff_60days.pdf" , width = 27, height = 9 ) 
   my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(11)
   my.breaks.b2b<- round(seq(100900, 101900, length.out = 11), digits=0)
  # my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"),alpha=1)(11)
@@ -530,9 +452,9 @@ library("viridis")
  my.breaks.b2r<- round(seq(-300, 200, length.out = 21), digits=0)
   #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
   my.color.b2g <- colorRampPalette(
-    c("brown","wheat","ivory","forestgreen","darkgreen"))(13)
-  my.breaks.b2g<- seq(-1.2,1.2,length.out=13)
- 
+    c("ivory","forestgreen"))(11)
+ # my.color.b2g <- gray.colors(11,start = 1.0, end = 0.0)
+  my.breaks.b2g<- seq(0,1.0,length.out=11)
   leg.at  <-  c("-200", "-100","0","100","200") 
   leg.txt <-  c("-200", "-100","0","100","200") 
   # set subplot margin
@@ -546,10 +468,10 @@ library("viridis")
        main=paste("",sep=""),add=T )
   #plot lagend 
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(pos.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2), col=my.color.b2g,breaks=my.breaks.b2g,
+  plot(pos.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(0,1.0), col=my.color.b2g,breaks=my.breaks.b2g,
        smallplot=c(0.6, 0.98, 0.17, 0.2), add=T, horizontal=T,
        axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=1),
-       le25gend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=1) )
+       legend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=1) )
   #add coastaline
   par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
   plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
@@ -578,22 +500,22 @@ library("viridis")
 
   leg.at  <-  c("-300","-200","-100","0","100","200","300") 
   leg.txt <-  c("-300","-200","-100","0","100","200","300") 
-
   my.color.b2g <- colorRampPalette(
-    c("brown","wheat","ivory","forestgreen","darkgreen"))(13)
-  my.breaks.b2g<- seq(-1.2,1.2,length.out=13)
+   c("brown","wheat","ivory"))(11)
+#  my.color.b2g <- gray.colors(11,start = 0, end = 1.0)
+  my.breaks.b2g<- seq(-1,0,length.out=11)
   # set subplot margin
   par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
   plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180),add=T)
   #### 
   par(fig=c(0.65,.95,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
-  plot(neg.raster.lai,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2),
+  plot(neg.raster.lai,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.0,0),
          col=my.color.b2g,breaks=my.breaks.b2g, box=T, 
        xlab="", ylab="", cex.lab=1., cex.main=2.0,
        main=paste("",sep=""),add=T )
   #plot legend 
   par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
-  plot(neg.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.2,1.2), col=my.color.b2g,breaks=my.breaks.b2g,
+  plot(neg.raster.lai, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-1.0,0), col=my.color.b2g,breaks=my.breaks.b2g,
        smallplot=c(0.60,.98, 0.17, 0.2), add=T, horizontal=T,
        axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=1),
        legend.args=list(text= expression(delta*"LAI("*"m"^2*"/m"^2*")") ,side=3, line=.1, cex=1) )
@@ -616,9 +538,158 @@ library("viridis")
   deg.E <- c("100","110","120","130","140","150","160","170","180")
   axis(side = 1, at = seq(100,180,length.out=9), 
        labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
-#dev.off()
+dev.off()
 
+ld_go <- T
 
+if (ld_go) {
+pdf(file= "all_phases_3a_spei_60days.pdf" , width = 27, height = 9 ) 
+  my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(11)
+  my.breaks.b2b<- round(seq(100900, 101900, length.out = 11), digits=0)
+ # my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"),alpha=1)(11)
+ # my.breaks.b2r<- round(seq(100900, 102000, length.out = 11), digits=1)
+#  my.color.w2g <- colorRampPalette(
+#    c("ivory","wheat","greenyellow","yellowgreen","limegreen"
+#      ,"forestgreen","darkgreen","darkgreen"))(36)
+   my.color.w2g <- colorRampPalette(
+    c("red","orange","ivory","lightgreen","forestgreen"))(13)
+  my.breaks.w2g<- seq(-3.,3.,length.out=13)
+  leg.at.spei  <- my.breaks.w2g 
+  leg.txt.spei <- my.breaks.w2g 
+  # set subplot margin
+#Neutral cases 
+  par(fig=c(0.05,.35,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
+  plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180))
+  #### 
+  par(fig=c(0.05,.35,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
+  plot(neu.raster.spei,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-3,3),
+         col=my.color.w2g,breaks=my.breaks.w2g, box=T, 
+       xlab="", ylab="", cex.lab=1., cex.main=2.0,
+       main=paste("",sep=""),add=T )
+ #plot legend 
+  par(fig=c(0.05,.35,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
+  plot(neu.raster.spei, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180), col=my.color.w2g,breaks=my.breaks.w2g,
+       smallplot=c(0.65,.95, 0.17, 0.2), add=T, horizontal=T,
+       axis.args=list(at=my.breaks.w2g, labels=my.breaks.w2g, cex.axis=1),
+       legend.args=list(text= expression("SPEI[-]") ,side=3, line=.1, cex=1) )
+  #add coastaline
+  par(fig=c(0.05,.35,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
+  plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
+  par(xpd=TRUE)
+  #text(x=92,y=60, label="a",cex=1.2, font=2)
+  par(xpd=FALSE)
+#  par(fig=c(0.02,.96,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
+  contour(neu.raster, lev=my.breaks.b2b, add=TRUE, 
+          ylim=c(0,60),xlim=c(100,180), col="black",labcex=1.5,col.axis="black",lwd=0.6 )
+  degs.N <- seq(0,60, length=7)
+  #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
+  axis(side = 2, at = degs.N, srt=0, las=1, 
+       labels = paste0(degs.N,"°","N") , tck = 0.02,cex.axis=1.5)
+ # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
+  deg.E <- c("100","110","120","130","140","150","160","170","180")
+  axis(side = 1, at = seq(100,180,length.out=9), 
+       labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
+  box()
+ #  mtext("Longitude" , side=1, line=2.0, cex=1.0) 
+ #
+ #######postive - neutral cases ##########
+
+ my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(11)
+ my.breaks.b2b<- round(seq(-250, 250, length.out = 11), digits=0)
+ 
+ my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
+ my.breaks.b2r<- round(seq(-300, 200, length.out = 21), digits=0)
+  #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
+  my.color.b2g <- colorRampPalette(
+    c("brown","ivory","forestgreen"))(11)
+ # my.color.b2g <- gray.colors(11,start = 1.0, end = 0.0)
+  my.breaks.b2g<- seq(-.5,.5,length.out=11)
+  leg.at  <-  c("-.5", "-.25","0",".25",".5") 
+  leg.txt <-  c("-.5", "-.25","0",".25",".5") 
+  # set subplot margin
+  par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
+  plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180),add=T)
+  #### 
+  par(fig=c(0.35,.65,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
+  plot(pos.raster.spei,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-.5,.5),
+         col=my.color.b2g,breaks=my.breaks.b2g, box=T, 
+       xlab="", ylab="", cex.lab=1., cex.main=2.0,
+       main=paste("",sep=""),add=T )
+  #plot lagend 
+  par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
+  plot(pos.raster.spei, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-.5,.5), col=my.color.b2g,breaks=my.breaks.b2g,
+       smallplot=c(0.6, 0.98, 0.17, 0.2), add=T, horizontal=T,
+       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=1),
+       legend.args=list(text= expression(delta*"SPEI[-]") ,side=3, line=.1, cex=1) )
+  #add coastaline
+  par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
+  plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
+  par(xpd=TRUE)
+  par(fig=c(0.35,.65,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
+  #add contour
+  contour(pos.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=0.6 )
+
+  degs.N <- seq(0,60, length=7)
+  #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
+  axis(side = 2, at = degs.N, srt=0, las=1, 
+       labels = paste0(degs.N,"°","N") , tck = 0.02,cex.axis=1.5)
+ # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
+  deg.E <- c("100","110","120","130","140","150","160","170","180")
+  axis(side = 1, at = seq(100,180,length.out=9), 
+       labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
+  box()
+ 
+##############  negative - neutral cases ########################### 
+  my.color.b2b<- colorRampPalette(c("lightgray","gray","black"),alpha=1)(33)
+  my.breaks.b2b<- round(seq(-800, 800, length.out = 33), digits=0)
+  
+  my.color.b2r<- colorRampPalette(c("blue","cyan","yellow","red"))(21)
+  my.breaks.b2r<- round(seq(-400, 400, length.out = 21), digits=0)
+  #my.breaks<- c(-.5,0.05,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0)
+
+  leg.at  <-  c("-300","-200","-100","0","100","200","300") 
+  leg.txt <-  c("-300","-200","-100","0","100","200","300") 
+  my.color.b2g <- colorRampPalette(
+   c("brown","ivory","forestgreen"))(11)
+#  my.color.b2g <- gray.colors(11,start = 0, end = 1.0)
+  my.breaks.b2g<- seq(-.5,.5,length.out=11)
+  # set subplot margin
+  par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
+  plot(coastlines,col="white",lwd=0,ylim=c(0,60),xlim=c(100,180),add=T)
+  #### 
+  par(fig=c(0.65,.95,0.02,0.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis 
+  plot(neg.raster.spei,  legend=FALSE,ylim=c(0,60),xlim=c(100,180),zlim=c(-.5,.5),
+         col=my.color.b2g,breaks=my.breaks.b2g, box=T, 
+       xlab="", ylab="", cex.lab=1., cex.main=2.0,
+       main=paste("",sep=""),add=T )
+  #plot legend 
+  par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60)) #no buffer in x-y axis
+  plot(neg.raster.spei, legend.only=TRUE,ylim=c(0,60),xlim=c(100,180),zlim=c(-.5,.5), col=my.color.b2g,breaks=my.breaks.b2g,
+       smallplot=c(0.60,.98, 0.17, 0.2), add=T, horizontal=T,
+       axis.args=list(at=my.breaks.b2g, labels=my.breaks.b2g, cex.axis=1),
+       legend.args=list(text= expression(delta*"SPEI[-]") ,side=3, line=.1, cex=1) )
+   #add coastaline
+  par(fig=c(0.65,.95,0.02,.96), mar = c(4, 4.5, 1.5 ,0.1), usr=c(100,180,0,60), xpd=FALSE)
+  plot(coastlines, lwd=1,ylim=c(0,60),xlim=c(100,180),add=T  )
+  par(xpd=TRUE)
+  #text(x=92,y=60, label="a",cex=1.2, font=2)
+  par(xpd=FALSE)
+
+  # add contour
+  contour(neg.neu.raster, lev=my.breaks.b2b, add=TRUE, ylim=c(0,60),xlim=c(100,180), col=my.color.b2b,labcex=1.5,lwd=0.6 )
+  box()
+
+  degs.N <- seq(0,60, length=7)
+  #degs.lab = sapply(degs, function(a) bquote(.(a) * degree))
+  axis(side = 2, at = degs.N, srt=0, las=1, 
+       labels = paste0(degs.N,"°","N") , tck = 0.02,cex.axis=1.5)
+ # mtext("Latitude" , side=2, line=2.0, cex=1.0) 
+  deg.E <- c("100","110","120","130","140","150","160","170","180")
+  axis(side = 1, at = seq(100,180,length.out=9), 
+       labels = paste0(deg.E,"°","E"), tck = 0.02,cex.axis=1.5)
+dev.off()
+
+} #end ld_go if 
 
 ld_go <- FALSE
 if(ld_go) { 
